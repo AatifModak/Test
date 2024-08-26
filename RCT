@@ -1,14 +1,29 @@
-	@GetMapping(value = "/account/gl-data")
-	@ApiOperation(value = "Retrieves the GL Data")
-	public ResponseEntity<GlDataDTO> getGlData(
-			@RequestHeader(name = GlobalConstants.ACCESS_CONTEXT) String context,
-			@RequestParam(required = true) Long bankAccountId) {
+	@ApiOperation(value = "To fetch the controls related information")
+	@GetMapping(value = "/list")
+	public ResponseEntity<String> getControlsDetail(
+			@RequestHeader(value = GlobalConstants.ACCESS_CONTEXT, required = true) String context,
+			String inputParams) {
+		ControlsDTO responseDto = null;
+		ResponseEntity<String> responseEntity = null;
 		try {
-			GlDataDTO glData = bankAccountServiceImpl.getGlData(context, bankAccountId);
-			return new ResponseEntity<>(glData, HttpStatus.OK);
-		} catch (Exception ex) {
-			log.error("Exception occurred while getting GL Data for Bank Account Id: {} {}", bankAccountId,
-					ExceptionUtils.getStackTrace(ex));
+			// Decrypt the input params start here
+			ControlsDetailDTO controlsDetailDTO = mapper.readValue(CryptUtil.decrypt(inputParams), ControlsDetailDTO.class);
+			// Decrypt the input params end here
+			controlsDetailDTO.setContext(context);
+			responseDto = controlServiceImpl.getControlsDetail(controlsDetailDTO);
+			if (Constants.SUCCESS_STATUS.equalsIgnoreCase(responseDto.getStatus())) {
+				// Encrypt the response start here
+				String response = CryptUtil.encrypt(mapper.writeValueAsString(responseDto));
+				// Encrypt the response end here
+				responseEntity = new ResponseEntity<>(response, HttpStatus.OK);
+			} else {
+				log.error("Error while getting controls information for params : {} {}", inputParams, responseDto.getMessage());
+				throw new BadRequestException(Constants.ERROR_MESSAGE);
+			}
+		} catch (Exception e) {
+			log.error("Exception while getting controls information for params : {} {}", inputParams,
+					ExceptionUtils.getStackTrace(e));
 			throw new BadRequestException(Constants.ERROR_MESSAGE);
 		}
+		return responseEntity;
 	}
